@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const registerUser = async (req, res) => {
   try {
@@ -53,6 +54,72 @@ const registerUser = async (req, res) => {
   }
 };
 
+//login
+const loginUser = async (req, res) => {
+  try {
+    const { email, mot_de_passe } = req.body;
+
+    if (!email || !mot_de_passe) {
+      return res.status(400).json({
+        message: "Email et mot de passe obligatoires",
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Email ou mot de passe incorrect",
+      });
+    }
+
+    if (user.statut === "inactif") {
+      return res.status(403).json({
+        message: "Compte inactif",
+      });
+    }
+
+    const motDePasseValide = await bcrypt.compare(
+      mot_de_passe,
+      user.mot_de_passe,
+    );
+
+    if (!motDePasseValide) {
+      return res.status(401).json({
+        message: "Email ou mot de passe incorrect",
+      });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "1d" },
+    );
+
+    res.status(200).json({
+      message: "Connexion réussie",
+      token,
+      user: {
+        id: user._id,
+        nom: user.nom,
+        prenom: user.prenom,
+        email: user.email,
+        role: user.role,
+        statut: user.statut,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Erreur serveur",
+    });
+  }
+};
+
+
+//module exports avec login et registre
 module.exports = {
   registerUser,
+  loginUser,
 };

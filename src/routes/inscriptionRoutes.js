@@ -7,11 +7,17 @@ const {
   updateInscription,
   deleteInscription,
 } = require("../controllers/inscriptionController");
+const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 
-router.post("/", createInscription);
-router.get("/", getInscriptions);
-router.get("/:id", getInscriptionById);
-router.put("/:id", updateInscription);
-router.delete("/:id", deleteInscription);
+router.post(
+  "/",
+  protect,
+  authorizeRoles("etudiant", "admin"),
+  createInscription,
+);
+router.get("/", protect, authorizeRoles("admin"), getInscriptions);
+router.get("/:id", protect, getInscriptionById);
+router.put("/:id", protect, authorizeRoles("admin"), updateInscription);
+router.delete("/:id", protect, authorizeRoles("admin"), deleteInscription);
 
 module.exports = router;

@@ -7,11 +7,12 @@ const {
   updateEntreprise,
   deleteEntreprise,
 } = require("../controllers/entrepriseController");
+const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 
-router.post("/", createEntreprise);
 router.get("/", getEntreprises);
 router.get("/:id", getEntrepriseById);
-router.put("/:id", updateEntreprise);
-router.delete("/:id", deleteEntreprise);
+router.post("/", protect, authorizeRoles("admin"), createEntreprise);
+router.put("/:id", protect, authorizeRoles("admin"), updateEntreprise);
+router.delete("/:id", protect, authorizeRoles("admin"), deleteEntreprise);
 
 module.exports = router;
