@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const {
+  emailValide,
+  motDePasseValide,
+  MESSAGE_EMAIL,
+  MESSAGE_MOT_DE_PASSE,
+} = require("../utils/validation");
 
 const formatUser = (user) => ({
   id: user._id,
@@ -24,6 +30,14 @@ const registerUser = async (req, res) => {
       });
     }
 
+    if (!emailValide(email)) {
+      return res.status(400).json({ message: MESSAGE_EMAIL });
+    }
+
+    if (!motDePasseValide(mot_de_passe)) {
+      return res.status(400).json({ message: MESSAGE_MOT_DE_PASSE });
+    }
+
     // Seuls ces rôles sont autorisés à l'inscription publique
     if (!["etudiant", "entreprise"].includes(role)) {
       return res.status(400).json({
@@ -32,7 +46,7 @@ const registerUser = async (req, res) => {
     }
 
     // Vérification si l'email existe déjà
-    const userExiste = await User.findOne({ email });
+    const userExiste = await User.findOne({ email: email.toLowerCase() });
 
     if (userExiste) {
       return res.status(400).json({
@@ -89,12 +103,12 @@ const loginUser = async (req, res) => {
       });
     }
 
-    const motDePasseValide = await bcrypt.compare(
+    const motDePasseCorrect = await bcrypt.compare(
       mot_de_passe,
       user.mot_de_passe,
     );
 
-    if (!motDePasseValide) {
+    if (!motDePasseCorrect) {
       return res.status(401).json({
         message: "Email ou mot de passe incorrect",
       });
@@ -139,6 +153,14 @@ const updateMe = async (req, res) => {
   try {
     const { nom, prenom, email, mot_de_passe } = req.body;
     const modifications = {};
+
+    if (email && !emailValide(email)) {
+      return res.status(400).json({ message: MESSAGE_EMAIL });
+    }
+
+    if (mot_de_passe && !motDePasseValide(mot_de_passe)) {
+      return res.status(400).json({ message: MESSAGE_MOT_DE_PASSE });
+    }
 
     if (nom) modifications.nom = nom;
     if (prenom) modifications.prenom = prenom;
@@ -206,6 +228,14 @@ const updateUser = async (req, res) => {
 
     const { nom, prenom, email, mot_de_passe, role, statut } = req.body;
     const modifications = {};
+
+    if (email && !emailValide(email)) {
+      return res.status(400).json({ message: MESSAGE_EMAIL });
+    }
+
+    if (mot_de_passe && !motDePasseValide(mot_de_passe)) {
+      return res.status(400).json({ message: MESSAGE_MOT_DE_PASSE });
+    }
 
     if (nom) modifications.nom = nom;
     if (prenom) modifications.prenom = prenom;
