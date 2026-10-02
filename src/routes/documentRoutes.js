@@ -7,11 +7,12 @@ const {
   updateDocument,
   deleteDocument,
 } = require("../controllers/documentController");
+const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 
-router.post("/", createDocument);
-router.get("/", getDocuments);
-router.get("/:id", getDocumentById);
-router.put("/:id", updateDocument);
-router.delete("/:id", deleteDocument);
+router.get("/", protect, getDocuments);
+router.get("/:id", protect, getDocumentById);
+router.post("/", protect, authorizeRoles("admin"), createDocument);
+router.put("/:id", protect, authorizeRoles("admin"), updateDocument);
+router.delete("/:id", protect, authorizeRoles("admin"), deleteDocument);
 
 module.exports = router;

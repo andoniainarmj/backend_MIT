@@ -7,11 +7,12 @@ const {
   updateMessage,
   deleteMessage,
 } = require("../controllers/messageContactController");
+const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 
 router.post("/", createMessage);
-router.get("/", getMessages);
-router.get("/:id", getMessageById);
-router.put("/:id", updateMessage);
-router.delete("/:id", deleteMessage);
+router.get("/", protect, authorizeRoles("admin"), getMessages);
+router.get("/:id", protect, authorizeRoles("admin"), getMessageById);
+router.put("/:id", protect, authorizeRoles("admin"), updateMessage);
+router.delete("/:id", protect, authorizeRoles("admin"), deleteMessage);
 
 module.exports = router;

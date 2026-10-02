@@ -7,11 +7,12 @@ const {
   updateFormation,
   deleteFormation,
 } = require("../controllers/formationController");
+const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 
-router.post("/", createFormation);
 router.get("/", getFormations);
 router.get("/:id", getFormationById);
-router.put("/:id", updateFormation);
-router.delete("/:id", deleteFormation);
+router.post("/", protect, authorizeRoles("admin"), createFormation);
+router.put("/:id", protect, authorizeRoles("admin"), updateFormation);
+router.delete("/:id", protect, authorizeRoles("admin"), deleteFormation);
 
 module.exports = router;

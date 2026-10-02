@@ -7,11 +7,27 @@ const {
   updateCandidature,
   deleteCandidature,
 } = require("../controllers/candidatureController");
+const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 
-router.post("/", createCandidature);
-router.get("/", getCandidatures);
-router.get("/:id", getCandidatureById);
-router.put("/:id", updateCandidature);
-router.delete("/:id", deleteCandidature);
+router.post(
+  "/",
+  protect,
+  authorizeRoles("etudiant", "admin"),
+  createCandidature,
+);
+router.get(
+  "/",
+  protect,
+  authorizeRoles("admin", "entreprise"),
+  getCandidatures,
+);
+router.get("/:id", protect, getCandidatureById);
+router.put(
+  "/:id",
+  protect,
+  authorizeRoles("admin", "entreprise"),
+  updateCandidature,
+);
+router.delete("/:id", protect, authorizeRoles("admin"), deleteCandidature);
 
 module.exports = router;

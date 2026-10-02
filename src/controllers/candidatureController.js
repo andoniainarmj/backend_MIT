@@ -5,8 +5,13 @@ const OffreAlternance = require("../models/OffreAlternance");
 
 exports.createCandidature = async (req, res) => {
   try {
-    const { utilisateur, offre } = req.body;
-    if (!utilisateur || !mongoose.Types.ObjectId.isValid(utilisateur)) {
+    const { offre, cv } = req.body;
+    const utilisateur =
+      req.user.role === "admin" && req.body.utilisateur
+        ? req.body.utilisateur
+        : req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(utilisateur)) {
       return res.status(400).json({ message: "Utilisateur invalide" });
     }
     if (!offre || !mongoose.Types.ObjectId.isValid(offre)) {
@@ -18,7 +23,7 @@ exports.createCandidature = async (req, res) => {
     if (!(await OffreAlternance.findById(offre))) {
       return res.status(404).json({ message: "Offre introuvable" });
     }
-    const candidature = await Candidature.create(req.body);
+    const candidature = await Candidature.create({ utilisateur, offre, cv });
     res.status(201).json(candidature);
   } catch (error) {
     if (error.code === 11000) {
