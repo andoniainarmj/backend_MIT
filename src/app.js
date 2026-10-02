@@ -10,8 +10,9 @@ const offreAlternanceRoutes = require("./routes/offreAlternanceRoutes");
 const inscriptionRoutes = require("./routes/inscriptionRoutes");
 const candidatureRoutes = require("./routes/candidatureRoutes");
 
-const app = express();
 
+const app = express();
+app.use(cors({ origin: "http://localhost:5173" }));
 app.use(cors());
 app.use(express.json());
 
