@@ -26,6 +26,16 @@ const formationSchema = new mongoose.Schema(
       trim: true,
     },
 
+    categorie: {
+      type: String,
+      trim: true,
+    },
+
+    rythme: {
+      type: String,
+      trim: true,
+    },
+
     image: {
       type: String,
       trim: true,

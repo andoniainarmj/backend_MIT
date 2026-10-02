@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 
-//creation des propriétés dans l'entités utilisateurs
 const userSchema = new mongoose.Schema(
   {
     nom: {
@@ -31,7 +30,7 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       required: true,
-      enum: ["admin", "etudiant", "entreprise"],
+      enum: ["super_admin", "admin", "enseignant", "etudiant", "entreprise"],
     },
 
     date_inscription: {
@@ -44,6 +43,20 @@ const userSchema = new mongoose.Schema(
       default: "actif",
       enum: ["actif", "inactif"],
     },
+
+    telephone: { type: String, trim: true },
+    adresse: { type: String, trim: true },
+    date_naissance: { type: Date },
+    photo: { type: String, trim: true },
+
+    // Étudiant
+    numero_etudiant: { type: String, unique: true, sparse: true },
+    formation: { type: mongoose.Schema.Types.ObjectId, ref: "Formation" },
+    niveau: { type: String, trim: true },
+
+    // Enseignant
+    specialite: { type: String, trim: true },
+    type_contrat: { type: String, enum: ["temps_plein", "vacataire"] },
   },
   {
     timestamps: true,

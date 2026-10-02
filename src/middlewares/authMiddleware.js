@@ -18,10 +18,10 @@ const protect = (req, res, next) => {
 
 const authorizeRoles = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: "Accès refusé" });
+    if (req.user.role === "super_admin" || roles.includes(req.user.role)) {
+      return next();
     }
-    next();
+    return res.status(403).json({ message: "Accès refusé" });
   };
 };
 
