@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 
 const userRoutes = require("./routes/userRoutes");
 const formationRoutes = require("./routes/formationRoutes");
@@ -13,6 +14,7 @@ const candidatureRoutes = require("./routes/candidatureRoutes");
 
 const app = express();
 app.use(cors({ origin: "http://localhost:5173" }));
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use(cors());
 app.use(express.json());
 
