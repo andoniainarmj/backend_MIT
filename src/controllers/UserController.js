@@ -13,6 +13,13 @@ const registerUser = async (req, res) => {
       });
     }
 
+    // Seuls ces rôles sont autorisés à l'inscription publique
+    if (!["etudiant", "entreprise"].includes(role)) {
+      return res.status(400).json({
+        message: "Rôle invalide pour l'inscription",
+      });
+    }
+
     // Vérification si l'email existe déjà
     const userExiste = await User.findOne({ email });
 
@@ -54,7 +61,6 @@ const registerUser = async (req, res) => {
   }
 };
 
-//login
 const loginUser = async (req, res) => {
   try {
     const { email, mot_de_passe } = req.body;
@@ -117,8 +123,6 @@ const loginUser = async (req, res) => {
   }
 };
 
-
-//module exports avec login et registre
 module.exports = {
   registerUser,
   loginUser,
