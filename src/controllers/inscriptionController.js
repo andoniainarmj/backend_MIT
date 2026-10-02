@@ -5,8 +5,13 @@ const Formation = require("../models/Formation");
 
 exports.createInscription = async (req, res) => {
   try {
-    const { utilisateur, formation } = req.body;
-    if (!utilisateur || !mongoose.Types.ObjectId.isValid(utilisateur)) {
+    const { formation } = req.body;
+    const utilisateur =
+      req.user.role === "admin" && req.body.utilisateur
+        ? req.body.utilisateur
+        : req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(utilisateur)) {
       return res.status(400).json({ message: "Utilisateur invalide" });
     }
     if (!formation || !mongoose.Types.ObjectId.isValid(formation)) {
@@ -18,7 +23,7 @@ exports.createInscription = async (req, res) => {
     if (!(await Formation.findById(formation))) {
       return res.status(404).json({ message: "Formation introuvable" });
     }
-    const inscription = await Inscription.create(req.body);
+    const inscription = await Inscription.create({ utilisateur, formation });
     res.status(201).json(inscription);
   } catch (error) {
     if (error.code === 11000) {
