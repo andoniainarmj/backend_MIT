@@ -10,13 +10,15 @@ const documentRoutes = require("./routes/documentRoutes");
 const offreAlternanceRoutes = require("./routes/offreAlternanceRoutes");
 const inscriptionRoutes = require("./routes/inscriptionRoutes");
 const candidatureRoutes = require("./routes/candidatureRoutes");
-
+const coursRoutes = require("./routes/coursRoutes");
+const salleRoutes = require("./routes/salleRoutes");
+const absenceRoutes = require("./routes/absenceRoutes");
 
 const app = express();
+
 app.use(cors({ origin: "http://localhost:5173" }));
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
-app.use(cors());
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use("/api/users", userRoutes);
 app.use("/api/formations", formationRoutes);
@@ -26,12 +28,14 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/inscriptions", inscriptionRoutes);
 app.use("/api/candidatures", candidatureRoutes);
 app.use("/api/offres", offreAlternanceRoutes);
-
+app.use("/api/cours", coursRoutes);
+app.use("/api/salles", salleRoutes);
+app.use("/api/absences", absenceRoutes);
 
 app.get("/", (req, res) => {
-    res.json({
-        message: "API Backend fonctionne"
-    });
+  res.json({
+    message: "API Backend fonctionne",
+  });
 });
 
 module.exports = app;
