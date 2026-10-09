@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 const Log = require("../models/Log");
 const Session = require("../models/Session");
 const User = require("../models/User");
@@ -6,8 +7,17 @@ const Configuration = require("../models/Configuration");
 const CompteurRequetes = require("../models/CompteurRequetes");
 const { obtenirConfig } = require("../utils/configuration");
 const { gererErreur } = require("../utils/erreurs");
+const { enregistrerLog } = require("../utils/journal");
+const {
+  emailValide,
+  motDePasseValide,
+  MESSAGE_EMAIL,
+  MESSAGE_MOT_DE_PASSE,
+} = require("../utils/validation");
 
 const idValide = (id) => mongoose.Types.ObjectId.isValid(String(id));
+const ROLES_ADMIN = ["admin", "super_admin"];
+const ROLES_ORDINAIRES = ["enseignant", "etudiant", "entreprise"];
 
 const debutDuJour = () => {
   const d = new Date();
@@ -30,6 +40,65 @@ const construireFiltreLogs = (query) => {
   return filtre;
 };
 
+const formatAdmin = (u) => ({
+  id: u._id,
+  nom: u.nom,
+  prenom: u.prenom,
+  email: u.email,
+  role: u.role,
+  statut: u.statut,
+});
+
+const chargerUtilisateur = async (id) => {
+  if (!idValide(id)) {
+    return { erreur: { status: 400, message: "Id invalide" } };
+  }
+  const cible = await User.findById(id);
+  if (!cible) {
+    return { erreur: { status: 404, message: "Utilisateur introuvable" } };
+  }
+  return { cible };
+};
+
+const chargerAdmin = async (id) => {
+  const { erreur, cible } = await chargerUtilisateur(id);
+  if (erreur) return { erreur };
+  if (!ROLES_ADMIN.includes(cible.role)) {
+    return {
+      erreur: {
+        status: 400,
+        message: "Cet utilisateur n'est pas administrateur",
+      },
+    };
+  }
+  return { cible };
+};
+
+const estDernierSuperAdmin = async (cible) => {
+  if (cible.role !== "super_admin") return false;
+  const autres = await User.countDocuments({
+    role: "super_admin",
+    statut: "actif",
+    _id: { $ne: cible._id },
+  });
+  return autres === 0;
+};
+
+const fermerSessions = (utilisateurId) =>
+  Session.updateMany(
+    { utilisateur: utilisateurId, active: true },
+    { active: false },
+  );
+
+const journaliser = (req, action, details, severite = "WARNING") =>
+  enregistrerLog({
+    utilisateur: req.user.id,
+    action,
+    details,
+    ip: req.ip,
+    severite,
+  });
+
 exports.getVueEnsemble = async (req, res) => {
   try {
     const config = await obtenirConfig();
@@ -50,7 +119,7 @@ exports.getVueEnsemble = async (req, res) => {
       compteurs,
     ] = await Promise.all([
       User.countDocuments({ statut: "actif" }),
-      User.countDocuments({ role: { $in: ["admin", "super_admin"] } }),
+      User.countDocuments({ role: { $in: ROLES_ADMIN } }),
       Session.countDocuments({ active: true }),
       Log.countDocuments({ createdAt: { $gte: aujourdhui } }),
       Log.countDocuments({
@@ -91,11 +160,11 @@ exports.getVueEnsemble = async (req, res) => {
   }
 };
 
+// ---------- Gestion des administrateurs ----------
+
 exports.getAdministrateurs = async (req, res) => {
   try {
-    const admins = await User.find({
-      role: { $in: ["admin", "super_admin"] },
-    })
+    const admins = await User.find({ role: { $in: ROLES_ADMIN } })
       .select("nom prenom email role statut")
       .sort({ nom: 1 });
 
@@ -115,6 +184,217 @@ exports.getAdministrateurs = async (req, res) => {
     gererErreur(error, res);
   }
 };
+
+exports.creerAdmin = async (req, res) => {
+  try {
+    const { nom, prenom, email, mot_de_passe } = req.body;
+    const role = req.body.role || "admin";
+
+    if (!nom || !prenom || !email || !mot_de_passe) {
+      return res.status(400).json({
+        message: "Nom, prénom, email et mot de passe sont obligatoires",
+      });
+    }
+    if (!ROLES_ADMIN.includes(role)) {
+      return res.status(400).json({ message: "Rôle invalide" });
+    }
+    if (!emailValide(email)) {
+      return res.status(400).json({ message: MESSAGE_EMAIL });
+    }
+    if (!motDePasseValide(mot_de_passe)) {
+      return res.status(400).json({ message: MESSAGE_MOT_DE_PASSE });
+    }
+    if (await User.findOne({ email: email.toLowerCase() })) {
+      return res.status(409).json({ message: "Cet email existe déjà" });
+    }
+
+    const admin = await User.create({
+      nom,
+      prenom,
+      email,
+      mot_de_passe: await bcrypt.hash(mot_de_passe, 10),
+      role,
+    });
+
+    await journaliser(
+      req,
+      "Création utilisateur",
+      `Nouvel ${role} créé : ${admin.email}`,
+      "INFO",
+    );
+    res.status(201).json(formatAdmin(admin));
+  } catch (error) {
+    gererErreur(error, res);
+  }
+};
+
+exports.designerAdmin = async (req, res) => {
+  try {
+    const { erreur, cible } = await chargerUtilisateur(req.params.id);
+    if (erreur)
+      return res.status(erreur.status).json({ message: erreur.message });
+
+    if (ROLES_ADMIN.includes(cible.role)) {
+      return res
+        .status(400)
+        .json({ message: "Cet utilisateur est déjà administrateur" });
+    }
+
+    const role = req.body.role || "admin";
+    if (!ROLES_ADMIN.includes(role)) {
+      return res.status(400).json({ message: "Rôle invalide" });
+    }
+
+    const ancienRole = cible.role;
+    cible.role = role;
+    await cible.save();
+    await fermerSessions(cible._id);
+
+    await journaliser(
+      req,
+      "Désignation administrateur",
+      `${cible.email} : ${ancienRole} -> ${role}`,
+    );
+    res.status(200).json(formatAdmin(cible));
+  } catch (error) {
+    gererErreur(error, res);
+  }
+};
+
+exports.revoquerAdmin = async (req, res) => {
+  try {
+    const { erreur, cible } = await chargerAdmin(req.params.id);
+    if (erreur)
+      return res.status(erreur.status).json({ message: erreur.message });
+
+    if (String(cible._id) === String(req.user.id)) {
+      return res
+        .status(400)
+        .json({ message: "Vous ne pouvez pas modifier votre propre rôle" });
+    }
+    if (await estDernierSuperAdmin(cible)) {
+      return res
+        .status(400)
+        .json({ message: "Impossible de retirer le dernier super admin" });
+    }
+
+    const role = req.body.role;
+    if (!ROLES_ORDINAIRES.includes(role)) {
+      return res.status(400).json({
+        message:
+          "Nouveau rôle obligatoire : enseignant, etudiant ou entreprise",
+      });
+    }
+
+    const ancienRole = cible.role;
+    cible.role = role;
+    await cible.save();
+    await fermerSessions(cible._id);
+
+    await journaliser(
+      req,
+      "Retrait des droits admin",
+      `${cible.email} : ${ancienRole} -> ${role}`,
+    );
+    res.status(200).json(formatAdmin(cible));
+  } catch (error) {
+    gererErreur(error, res);
+  }
+};
+
+exports.changerStatutAdmin = async (req, res) => {
+  try {
+    const { erreur, cible } = await chargerAdmin(req.params.id);
+    if (erreur)
+      return res.status(erreur.status).json({ message: erreur.message });
+
+    const { statut } = req.body;
+    if (!["actif", "inactif"].includes(statut)) {
+      return res.status(400).json({ message: "Statut invalide" });
+    }
+
+    if (statut === "inactif") {
+      if (String(cible._id) === String(req.user.id)) {
+        return res
+          .status(400)
+          .json({
+            message: "Vous ne pouvez pas désactiver votre propre compte",
+          });
+      }
+      if (await estDernierSuperAdmin(cible)) {
+        return res
+          .status(400)
+          .json({ message: "Impossible de désactiver le dernier super admin" });
+      }
+    }
+
+    cible.statut = statut;
+    await cible.save();
+    if (statut === "inactif") await fermerSessions(cible._id);
+
+    await journaliser(
+      req,
+      statut === "inactif"
+        ? "Désactivation administrateur"
+        : "Réactivation administrateur",
+      cible.email,
+    );
+    res.status(200).json(formatAdmin(cible));
+  } catch (error) {
+    gererErreur(error, res);
+  }
+};
+
+exports.reinitialiserMotDePasse = async (req, res) => {
+  try {
+    const { erreur, cible } = await chargerAdmin(req.params.id);
+    if (erreur)
+      return res.status(erreur.status).json({ message: erreur.message });
+
+    const { mot_de_passe } = req.body;
+    if (!mot_de_passe || !motDePasseValide(mot_de_passe)) {
+      return res.status(400).json({ message: MESSAGE_MOT_DE_PASSE });
+    }
+
+    cible.mot_de_passe = await bcrypt.hash(mot_de_passe, 10);
+    await cible.save();
+    await fermerSessions(cible._id);
+
+    await journaliser(req, "Réinitialisation mot de passe", cible.email);
+    res.status(200).json({ message: "Mot de passe réinitialisé" });
+  } catch (error) {
+    gererErreur(error, res);
+  }
+};
+
+exports.supprimerAdmin = async (req, res) => {
+  try {
+    const { erreur, cible } = await chargerAdmin(req.params.id);
+    if (erreur)
+      return res.status(erreur.status).json({ message: erreur.message });
+
+    if (String(cible._id) === String(req.user.id)) {
+      return res
+        .status(400)
+        .json({ message: "Vous ne pouvez pas supprimer votre propre compte" });
+    }
+    if (await estDernierSuperAdmin(cible)) {
+      return res
+        .status(400)
+        .json({ message: "Impossible de supprimer le dernier super admin" });
+    }
+
+    await fermerSessions(cible._id);
+    await cible.deleteOne();
+
+    await journaliser(req, "Suppression administrateur", cible.email);
+    res.status(200).json({ message: "Administrateur supprimé" });
+  } catch (error) {
+    gererErreur(error, res);
+  }
+};
+
+// ---------- Journal, sessions, sécurité ----------
 
 exports.getLogs = async (req, res) => {
   try {
@@ -239,6 +519,8 @@ exports.getConnexionsEchouees = async (req, res) => {
     gererErreur(error, res);
   }
 };
+
+// ---------- Configuration ----------
 
 const CHAMPS_CONFIG = [
   "mode_maintenance",

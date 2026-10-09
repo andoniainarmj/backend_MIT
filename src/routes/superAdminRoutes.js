@@ -3,6 +3,12 @@ const router = express.Router();
 const {
   getVueEnsemble,
   getAdministrateurs,
+  creerAdmin,
+  designerAdmin,
+  revoquerAdmin,
+  changerStatutAdmin,
+  reinitialiserMotDePasse,
+  supprimerAdmin,
   getLogs,
   exporterLogs,
   getSessionsActives,
@@ -19,7 +25,14 @@ const { tracer } = require("../utils/journal");
 router.use(protect, authorizeRoles());
 
 router.get("/vue-ensemble", getVueEnsemble);
+
 router.get("/administrateurs", getAdministrateurs);
+router.post("/administrateurs", creerAdmin);
+router.put("/administrateurs/:id/designer", designerAdmin);
+router.put("/administrateurs/:id/revoquer", revoquerAdmin);
+router.put("/administrateurs/:id/statut", changerStatutAdmin);
+router.put("/administrateurs/:id/mot-de-passe", reinitialiserMotDePasse);
+router.delete("/administrateurs/:id", supprimerAdmin);
 
 router.get("/logs", getLogs);
 router.get("/logs/export", exporterLogs);
