@@ -13,6 +13,7 @@ const candidatureRoutes = require("./routes/candidatureRoutes");
 const coursRoutes = require("./routes/coursRoutes");
 const salleRoutes = require("./routes/salleRoutes");
 const absenceRoutes = require("./routes/absenceRoutes");
+const noteRoutes = require("./routes/noteRoutes");
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use("/api/offres", offreAlternanceRoutes);
 app.use("/api/cours", coursRoutes);
 app.use("/api/salles", salleRoutes);
 app.use("/api/absences", absenceRoutes);
+app.use("/api/notes", noteRoutes);
 
 app.get("/", (req, res) => {
   res.json({
