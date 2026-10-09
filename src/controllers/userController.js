@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const User = require("../models/User");
+const Session = require("../models/Session");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const {
@@ -8,6 +9,8 @@ const {
   MESSAGE_EMAIL,
   MESSAGE_MOT_DE_PASSE,
 } = require("../utils/validation");
+const { enregistrerLog } = require("../utils/journal");
+const { obtenirConfig } = require("../utils/configuration");
 
 const ROLES = ["super_admin", "admin", "enseignant", "etudiant", "entreprise"];
 
@@ -43,6 +46,11 @@ const genererNumeroEtudiant = async () => {
 
 const registerUser = async (req, res) => {
   try {
+    const config = await obtenirConfig();
+    if (!config.inscriptions_ouvertes) {
+      return res.status(403).json({ message: "Les inscriptions sont fermées" });
+    }
+
     const { nom, prenom, email, mot_de_passe, role } = req.body;
 
     if (!nom || !prenom || !email || !mot_de_passe || !role) {
@@ -102,18 +110,31 @@ const loginUser = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const emailNormalise = String(email).toLowerCase();
+
+    const echec = async (status, message, details) => {
+      await enregistrerLog({
+        action: "Échec connexion",
+        details,
+        email_tente: emailNormalise,
+        ip: req.ip,
+        severite: "ERROR",
+      });
+      return res.status(status).json({ message });
+    };
+
+    const user = await User.findOne({ email: emailNormalise });
 
     if (!user) {
-      return res.status(401).json({
-        message: "Email ou mot de passe incorrect",
-      });
+      return echec(
+        401,
+        "Email ou mot de passe incorrect",
+        "Utilisateur inconnu",
+      );
     }
 
     if (user.statut === "inactif") {
-      return res.status(403).json({
-        message: "Compte inactif",
-      });
+      return echec(403, "Compte inactif", "Compte inactif");
     }
 
     const motDePasseCorrect = await bcrypt.compare(
@@ -122,16 +143,38 @@ const loginUser = async (req, res) => {
     );
 
     if (!motDePasseCorrect) {
-      return res.status(401).json({
-        message: "Email ou mot de passe incorrect",
-      });
+      return echec(
+        401,
+        "Email ou mot de passe incorrect",
+        "Mot de passe erroné",
+      );
     }
 
+    const config = await obtenirConfig();
+    if (config.mode_maintenance && user.role !== "super_admin") {
+      return res
+        .status(503)
+        .json({ message: "Plateforme en maintenance, réessayez plus tard" });
+    }
+
+    const session = await Session.create({
+      utilisateur: user._id,
+      ip: req.ip,
+      appareil: req.headers["user-agent"] || "Inconnu",
+    });
+
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, sid: session._id },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "1d" },
     );
+
+    await enregistrerLog({
+      utilisateur: user._id,
+      action: "Connexion",
+      details: "Session établie avec succès",
+      ip: req.ip,
+    });
 
     res.status(200).json({
       message: "Connexion réussie",
