@@ -13,6 +13,7 @@ const { enregistrerLog } = require("../utils/journal");
 const { obtenirConfig } = require("../utils/configuration");
 
 const ROLES = ["super_admin", "admin", "enseignant", "etudiant", "entreprise"];
+const ROLES_PROTEGES = ["super_admin", "admin"];
 
 const formatUser = (user) => ({
   id: user._id,
@@ -293,8 +294,10 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: "Rôle invalide" });
     }
 
-    if (role === "super_admin" && req.user.role !== "super_admin") {
-      return res.status(403).json({ message: "Accès refusé" });
+    if (ROLES_PROTEGES.includes(role) && req.user.role !== "super_admin") {
+      return res.status(403).json({
+        message: "Seul le super admin peut créer un administrateur",
+      });
     }
 
     const erreur = validerEmailEtMotDePasse(req.body);
@@ -377,8 +380,13 @@ const updateUser = async (req, res) => {
     }
 
     if (req.user.role !== "super_admin") {
-      if (cible.role === "super_admin" || req.body.role === "super_admin") {
-        return res.status(403).json({ message: "Accès refusé" });
+      if (
+        ROLES_PROTEGES.includes(cible.role) ||
+        ROLES_PROTEGES.includes(req.body.role)
+      ) {
+        return res.status(403).json({
+          message: "Seul le super admin peut gérer les administrateurs",
+        });
       }
     }
 
@@ -394,6 +402,17 @@ const updateUser = async (req, res) => {
       new: true,
       runValidators: true,
     }).select("-mot_de_passe");
+
+    // Un changement de rôle ou une désactivation coupe les sessions ouvertes
+    if (
+      modifications.statut === "inactif" ||
+      (modifications.role && modifications.role !== cible.role)
+    ) {
+      await Session.updateMany(
+        { utilisateur: cible._id, active: true },
+        { active: false },
+      );
+    }
 
     res.status(200).json(formatUser(user));
   } catch (error) {
@@ -418,10 +437,19 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({ message: "Utilisateur introuvable" });
     }
 
-    if (cible.role === "super_admin" && req.user.role !== "super_admin") {
-      return res.status(403).json({ message: "Accès refusé" });
+    if (
+      ROLES_PROTEGES.includes(cible.role) &&
+      req.user.role !== "super_admin"
+    ) {
+      return res.status(403).json({
+        message: "Seul le super admin peut supprimer un administrateur",
+      });
     }
 
+    await Session.updateMany(
+      { utilisateur: cible._id, active: true },
+      { active: false },
+    );
     await cible.deleteOne();
 
     res.status(200).json({ message: "Utilisateur supprimé" });
