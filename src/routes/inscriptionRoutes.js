@@ -4,10 +4,18 @@ const {
   createInscription,
   getInscriptions,
   getInscriptionById,
+  getMesInscriptions,
   updateInscription,
   deleteInscription,
 } = require("../controllers/inscriptionController");
 const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
+
+router.get(
+  "/mes-inscriptions",
+  protect,
+  authorizeRoles("etudiant"),
+  getMesInscriptions,
+);
 
 router.post(
   "/",

@@ -4,11 +4,19 @@ const {
   createCandidature,
   getCandidatures,
   getCandidatureById,
+  getMesCandidatures,
   updateCandidature,
   deleteCandidature,
 } = require("../controllers/candidatureController");
 const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 const { uploadFichier } = require("../middlewares/uploadMiddleware");
+
+router.get(
+  "/mes-candidatures",
+  protect,
+  authorizeRoles("etudiant"),
+  getMesCandidatures,
+);
 
 router.post(
   "/",
