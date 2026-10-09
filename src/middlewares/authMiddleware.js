@@ -1,18 +1,48 @@
 const jwt = require("jsonwebtoken");
+const Session = require("../models/Session");
+const { obtenirConfig } = require("../utils/configuration");
 
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Token manquant" });
   }
 
+  let payload;
   try {
-    const token = authHeader.split(" ")[1];
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
+    payload = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
   } catch (error) {
     return res.status(401).json({ message: "Token invalide ou expiré" });
+  }
+
+  try {
+    if (!payload.sid) {
+      return res
+        .status(401)
+        .json({ message: "Session invalide, reconnectez-vous" });
+    }
+
+    const session = await Session.findById(payload.sid);
+    if (!session || !session.active) {
+      return res.status(401).json({ message: "Session expirée ou révoquée" });
+    }
+
+    const config = await obtenirConfig();
+    if (config.mode_maintenance && payload.role !== "super_admin") {
+      return res
+        .status(503)
+        .json({ message: "Plateforme en maintenance, réessayez plus tard" });
+    }
+
+    session.derniere_activite = new Date();
+    await session.save();
+
+    req.user = { id: payload.id, role: payload.role, sid: payload.sid };
+    next();
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Erreur serveur" });
   }
 };
 

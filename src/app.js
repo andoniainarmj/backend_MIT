@@ -18,6 +18,8 @@ const conventionRoutes = require("./routes/conventionRoutes");
 const paiementRoutes = require("./routes/paiementRoutes");
 const depenseRoutes = require("./routes/depenseRoutes");
 const conversationRoutes = require("./routes/conventionRoutes");
+const superAdminRoutes = require("./routes/superAdminRoutes");
+
 
 const app = express();
 
@@ -41,6 +43,7 @@ app.use("/api/conventions", conventionRoutes);
 app.use("/api/paiements", paiementRoutes);
 app.use("/api/depenses", depenseRoutes);
 app.use("/api/conversations", conversationRoutes);
+app.use("/api/super-admin", superAdminRoutes);
 
 app.get("/", (req, res) => {
   res.json({
