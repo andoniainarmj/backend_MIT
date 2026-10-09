@@ -47,6 +47,21 @@ exports.getCandidatures = async (req, res) => {
   }
 };
 
+exports.getMesCandidatures = async (req, res) => {
+  try {
+    const candidatures = await Candidature.find({ utilisateur: req.user.id })
+      .populate({
+        path: "offre",
+        select: "titre statut",
+        populate: { path: "entreprise", select: "nom" },
+      })
+      .sort({ date_candidature: -1 });
+    res.status(200).json(candidatures);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
 exports.getCandidatureById = async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {

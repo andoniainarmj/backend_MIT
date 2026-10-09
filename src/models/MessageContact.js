@@ -8,10 +8,25 @@ const messageContactSchema = new mongoose.Schema(
       trim: true,
     },
 
+    prenom: {
+      type: String,
+      trim: true,
+    },
+
     email: {
       type: String,
       required: true,
       lowercase: true,
+      trim: true,
+    },
+
+    telephone: {
+      type: String,
+      trim: true,
+    },
+
+    entreprise: {
+      type: String,
       trim: true,
     },
 

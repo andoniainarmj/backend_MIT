@@ -49,6 +49,17 @@ exports.getInscriptions = async (req, res) => {
   }
 };
 
+exports.getMesInscriptions = async (req, res) => {
+  try {
+    const inscriptions = await Inscription.find({ utilisateur: req.user.id })
+      .populate("formation", "titre duree niveau")
+      .sort({ date_inscription: -1 });
+    res.status(200).json(inscriptions);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
 exports.getInscriptionById = async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {

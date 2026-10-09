@@ -14,10 +14,20 @@ const documentSchema = new mongoose.Schema(
       trim: true,
     },
 
+    categorie: {
+      type: String,
+      trim: true,
+    },
+
     fichier: {
       type: String,
       required: true,
       trim: true,
+    },
+
+    taille: {
+      type: Number,
+      default: 0,
     },
 
     date_ajout: {
@@ -25,10 +35,20 @@ const documentSchema = new mongoose.Schema(
       default: Date.now,
     },
 
+    visibilite: {
+      type: String,
+      default: "formation",
+      enum: ["public", "formation", "prive"],
+    },
+
     formation: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Formation",
-      required: true,
+    },
+
+    proprietaire: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
   },
   {
