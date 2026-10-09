@@ -19,6 +19,8 @@ const paiementRoutes = require("./routes/paiementRoutes");
 const depenseRoutes = require("./routes/depenseRoutes");
 const conversationRoutes = require("./routes/conventionRoutes");
 const superAdminRoutes = require("./routes/superAdminRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
+const { compterRequetes } = require("./middlewares/compteurMiddleware");
 
 
 const app = express();
@@ -44,6 +46,8 @@ app.use("/api/paiements", paiementRoutes);
 app.use("/api/depenses", depenseRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/super-admin", superAdminRoutes);
+app.use("/api", compterRequetes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.get("/", (req, res) => {
   res.json({

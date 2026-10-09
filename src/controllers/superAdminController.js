@@ -3,6 +3,7 @@ const Log = require("../models/Log");
 const Session = require("../models/Session");
 const User = require("../models/User");
 const Configuration = require("../models/Configuration");
+const CompteurRequetes = require("../models/CompteurRequetes");
 const { obtenirConfig } = require("../utils/configuration");
 const { gererErreur } = require("../utils/erreurs");
 
@@ -34,6 +35,11 @@ exports.getVueEnsemble = async (req, res) => {
     const config = await obtenirConfig();
     const aujourdhui = debutDuJour();
 
+    const jour = new Date().toISOString().slice(0, 10);
+    const il7j = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
     const [
       utilisateursActifs,
       administrateurs,
@@ -41,6 +47,7 @@ exports.getVueEnsemble = async (req, res) => {
       logsAujourdhui,
       erreursAujourdhui,
       derniersLogs,
+      compteurs,
     ] = await Promise.all([
       User.countDocuments({ statut: "actif" }),
       User.countDocuments({ role: { $in: ["admin", "super_admin"] } }),
@@ -54,7 +61,10 @@ exports.getVueEnsemble = async (req, res) => {
         .sort({ createdAt: -1 })
         .limit(5)
         .populate("utilisateur", "nom prenom"),
+      CompteurRequetes.find({ jour: { $gte: il7j } }).sort({ jour: 1 }),
     ]);
+
+    const compteurDuJour = compteurs.find((c) => c.jour === jour);
 
     res.status(200).json({
       systeme: {
@@ -69,6 +79,11 @@ exports.getVueEnsemble = async (req, res) => {
       sessions_actives: sessionsActives,
       logs_aujourdhui: logsAujourdhui,
       erreurs_aujourdhui: erreursAujourdhui,
+      requetes_api_aujourdhui: compteurDuJour ? compteurDuJour.total : 0,
+      requetes_api_7_jours: compteurs.map((c) => ({
+        jour: c.jour,
+        total: c.total,
+      })),
       derniers_logs: derniersLogs,
     });
   } catch (error) {
