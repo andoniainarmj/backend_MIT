@@ -34,12 +34,14 @@ const messageContactSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      maxlength: 200,
     },
 
     message: {
       type: String,
       required: true,
       trim: true,
+      maxlength: 5000,
     },
 
     date_envoi: {
@@ -57,6 +59,20 @@ const messageContactSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
+    },
+
+    reponse: {
+      type: String,
+      trim: true,
+    },
+
+    date_reponse: {
+      type: Date,
+    },
+
+    repondu_par: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
   },
   {
