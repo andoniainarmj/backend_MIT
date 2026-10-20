@@ -20,6 +20,7 @@ const depenseRoutes = require("./routes/depenseRoutes");
 const conversationRoutes = require("./routes/conventionRoutes");
 const superAdminRoutes = require("./routes/superAdminRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const rendezVousRoutes = require("./routes/rendezVousRoutes");
 const { compterRequetes } = require("./middlewares/compteurMiddleware");
 
 
@@ -48,6 +49,7 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/super-admin", superAdminRoutes);
 app.use("/api", compterRequetes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/rendez-vous", rendezVousRoutes);
 
 app.get("/", (req, res) => {
   res.json({
