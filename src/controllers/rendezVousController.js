@@ -249,7 +249,8 @@ exports.confirmerRendezVous = async (req, res) => {
     const lien = (req.body.lien_visio || "").trim();
     if (lien && !/^https?:\/\//i.test(lien)) {
       return res.status(400).json({
-        message: "Le lien de visioconférence doit commencer par http:// ou https://",
+        message:
+          "Le lien de visioconférence doit commencer par http:// ou https://",
       });
     }
 
