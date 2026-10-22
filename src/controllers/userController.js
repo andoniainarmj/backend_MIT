@@ -327,19 +327,71 @@ const createUser = async (req, res) => {
   }
 };
 
+const echapperRegex = (texte) =>
+  String(texte).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const getUsers = async (req, res) => {
   try {
     const filtre = {};
     if (req.query.role) filtre.role = req.query.role;
     if (req.query.statut) filtre.statut = req.query.statut;
-    if (req.query.formation) filtre.formation = req.query.formation;
+    if (req.query.niveau) filtre.niveau = req.query.niveau;
+    if (req.query.formation) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.formation)) {
+        return res.status(400).json({ message: "Formation invalide" });
+      }
+      filtre.formation = req.query.formation;
+    }
+    if (req.query.q && req.query.q.trim()) {
+      const motif = new RegExp(echapperRegex(req.query.q.trim()), "i");
+      filtre.$or = [
+        { nom: motif },
+        { prenom: motif },
+        { email: motif },
+        { numero_etudiant: motif },
+      ];
+    }
 
-    const users = await User.find(filtre)
+    const champsTri = ["nom", "prenom", "email", "createdAt"];
+    const champ = champsTri.includes(req.query.tri)
+      ? req.query.tri
+      : "createdAt";
+    const ordreParDefaut = champ === "createdAt" ? -1 : 1;
+    const sens =
+      req.query.ordre === "asc"
+        ? 1
+        : req.query.ordre === "desc"
+          ? -1
+          : ordreParDefaut;
+
+    const requete = User.find(filtre)
       .select("-mot_de_passe")
       .populate("formation", "titre")
-      .sort({ createdAt: -1 });
+      .sort({ [champ]: sens });
 
-    res.status(200).json(users.map(formatUser));
+    // Sans page ni limite : liste complète, comme avant
+    if (req.query.page === undefined && req.query.limite === undefined) {
+      const users = await requete;
+      return res.status(200).json(users.map(formatUser));
+    }
+
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limite = Math.min(
+      Math.max(parseInt(req.query.limite, 10) || 8, 1),
+      100,
+    );
+    const total = await User.countDocuments(filtre);
+    const users = await requete.skip((page - 1) * limite).limit(limite);
+
+    res.status(200).json({
+      total,
+      page,
+      pages: Math.ceil(total / limite),
+      limite,
+      debut: total ? (page - 1) * limite + 1 : 0,
+      fin: Math.min(page * limite, total),
+      utilisateurs: users.map(formatUser),
+    });
   } catch (error) {
     gererErreurEcriture(error, res);
   }
