@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const helmet = require("helmet");
 
 const userRoutes = require("./routes/userRoutes");
 const formationRoutes = require("./routes/formationRoutes");
@@ -26,6 +27,7 @@ const { compterRequetes } = require("./middlewares/compteurMiddleware");
 
 const app = express();
 
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin"}}));
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));

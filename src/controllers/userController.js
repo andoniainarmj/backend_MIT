@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const User = require("../models/User");
 const Session = require("../models/Session");
+const Log = require("../models/Log");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const {
@@ -14,6 +15,9 @@ const { obtenirConfig } = require("../utils/configuration");
 
 const ROLES = ["super_admin", "admin", "enseignant", "etudiant", "entreprise"];
 const ROLES_PROTEGES = ["super_admin", "admin"];
+const FENETRE_CONNEXION_MS = 15 * 60 * 1000;
+const MAX_ECHECS_PAR_EMAIL = 5;
+const MAX_ECHECS_PAR_IP = 20;
 
 const formatUser = (user) => ({
   id: user._id,
@@ -112,6 +116,32 @@ const loginUser = async (req, res) => {
     }
 
     const emailNormalise = String(email).toLowerCase();
+    const config = await obtenirConfig();
+
+    // Limite des essais de connexion (option « rate_limiting » du super admin)
+    if (config.rate_limiting) {
+      const fenetre = new Date(Date.now() - FENETRE_CONNEXION_MS);
+      const [echecsEmail, echecsIp] = await Promise.all([
+        Log.countDocuments({
+          action: "Échec connexion",
+          email_tente: emailNormalise,
+          createdAt: { $gte: fenetre },
+        }),
+        Log.countDocuments({
+          action: "Échec connexion",
+          ip: req.ip,
+          createdAt: { $gte: fenetre },
+        }),
+      ]);
+      if (
+        echecsEmail >= MAX_ECHECS_PAR_EMAIL ||
+        echecsIp >= MAX_ECHECS_PAR_IP
+      ) {
+        return res.status(429).json({
+          message: "Trop de tentatives, réessayez dans 15 minutes",
+        });
+      }
+    }
 
     const echec = async (status, message, details) => {
       await enregistrerLog({
@@ -151,7 +181,6 @@ const loginUser = async (req, res) => {
       );
     }
 
-    const config = await obtenirConfig();
     if (config.mode_maintenance && user.role !== "super_admin") {
       return res
         .status(503)
@@ -260,6 +289,33 @@ const updateMe = async (req, res) => {
     const erreur = validerEmailEtMotDePasse(req.body);
     if (erreur) return res.status(400).json({ message: erreur });
 
+    const actuel = await User.findById(req.user.id);
+    if (!actuel) {
+      return res.status(404).json({ message: "Utilisateur introuvable" });
+    }
+
+    const changeEmail =
+      req.body.email && String(req.body.email).toLowerCase() !== actuel.email;
+    const changeMotDePasse = Boolean(req.body.mot_de_passe);
+
+    if (changeEmail || changeMotDePasse) {
+      if (!req.body.ancien_mot_de_passe) {
+        return res.status(400).json({
+          message:
+            "Ancien mot de passe obligatoire pour changer l'email ou le mot de passe",
+        });
+      }
+      const correct = await bcrypt.compare(
+        req.body.ancien_mot_de_passe,
+        actuel.mot_de_passe,
+      );
+      if (!correct) {
+        return res
+          .status(403)
+          .json({ message: "Ancien mot de passe incorrect" });
+      }
+    }
+
     const modifications = await construireModifications(
       req.body,
       CHAMPS_PROFIL,
@@ -270,8 +326,12 @@ const updateMe = async (req, res) => {
       runValidators: true,
     }).select("-mot_de_passe");
 
-    if (!user) {
-      return res.status(404).json({ message: "Utilisateur introuvable" });
+    // Un nouveau mot de passe déconnecte les autres appareils
+    if (changeMotDePasse) {
+      await Session.updateMany(
+        { utilisateur: req.user.id, active: true, _id: { $ne: req.user.sid } },
+        { active: false },
+      );
     }
 
     res.status(200).json(formatUser(user));
