@@ -22,6 +22,7 @@ const conversationRoutes = require("./routes/conventionRoutes");
 const superAdminRoutes = require("./routes/superAdminRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const rendezVousRoutes = require("./routes/rendezVousRoutes");
+const contenuRoutes = require("./routes/contenuRoutes");
 const { compterRequetes } = require("./middlewares/compteurMiddleware");
 
 
@@ -52,6 +53,7 @@ app.use("/api/super-admin", superAdminRoutes);
 app.use("/api", compterRequetes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/rendez-vous", rendezVousRoutes);
+app.use("/api/contenu", contenuRoutes);
 
 app.get("/", (req, res) => {
   res.json({
