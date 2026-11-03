@@ -11,6 +11,7 @@ const {
   updateUser,
   deleteUser,
 } = require("../controllers/userController");
+const { getDossierEtudiant } = require("../controllers/dossierController");
 const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 const { uploadFichier } = require("../middlewares/uploadMiddleware");
 const { tracer } = require("../utils/journal");
@@ -31,6 +32,12 @@ router.post(
   createUser,
 );
 router.get("/", protect, authorizeRoles("admin"), getUsers);
+router.get(
+  "/:id/dossier",
+  protect,
+  authorizeRoles("admin"),
+  getDossierEtudiant,
+);
 router.get("/:id", protect, authorizeRoles("admin"), getUserById);
 router.put(
   "/:id",
