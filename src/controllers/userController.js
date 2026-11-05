@@ -15,7 +15,7 @@ const { obtenirConfig } = require("../utils/configuration");
 
 const ROLES = ["super_admin", "admin", "enseignant", "etudiant", "entreprise"];
 const ROLES_PROTEGES = ["super_admin", "admin"];
-const FENETRE_CONNEXION_MS = 15 * 60 * 1000;
+const FENETRE_CONNEXION_MS = 5 * 60 * 1000;
 const MAX_ECHECS_PAR_EMAIL = 5;
 const MAX_ECHECS_PAR_IP = 20;
 
@@ -138,7 +138,7 @@ const loginUser = async (req, res) => {
         echecsIp >= MAX_ECHECS_PAR_IP
       ) {
         return res.status(429).json({
-          message: "Trop de tentatives, réessayez dans 15 minutes",
+          message: "Trop de tentatives, réessayez dans 5 minutes",
         });
       }
     }
